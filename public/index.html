@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3Speak Embed Upload Service</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 50px;
+        }
+        
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        .card h3 {
+            color: #764ba2;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        
+        .actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .action-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            text-decoration: none;
+            color: #333;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .action-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        
+        .action-card .icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        .action-card h3 {
+            color: #667eea;
+            margin: 0 0 10px 0;
+        }
+        
+        .action-card p {
+            color: #666;
+            font-size: 0.95em;
+        }
+        
+        pre {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border-left: 4px solid #667eea;
+        }
+        
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .feature {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #764ba2;
+        }
+        
+        .feature h4 {
+            color: #764ba2;
+            margin-bottom: 10px;
+        }
+        
+        footer {
+            text-align: center;
+            color: white;
+            margin-top: 50px;
+            padding: 20px;
+            opacity: 0.9;
+        }
+        
+        footer a {
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+        footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .contact-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .contact-box strong {
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 3Speak Embed Upload</h1>
+            <p>Decentralized Video Upload & Encoding Service</p>
+        </header>
+
+        <div class="actions">
+            <a href="/demo.html" class="action-card">
+                <div class="icon">🚀</div>
+                <h3>Try Demo</h3>
+                <p>Test the upload system with a live demo</p>
+            </a>
+            
+            <a href="/admin.html" class="action-card">
+                <div class="icon">🔑</div>
+                <h3>Admin Panel</h3>
+                <p>Manage API keys (password protected)</p>
+            </a>
+            
+            <a href="#docs" class="action-card">
+                <div class="icon">📚</div>
+                <h3>Documentation</h3>
+                <p>Integration guide and API reference</p>
+            </a>
+        </div>
+
+        <div class="card">
+            <h2>✨ Features</h2>
+            <div class="features">
+                <div class="feature">
+                    <h4>TUS Resumable Uploads</h4>
+                    <p>Robust uploads with pause/resume support for large video files</p>
+                </div>
+                <div class="feature">
+                    <h4>IPFS Storage</h4>
+                    <p>Decentralized storage with automatic pinning to IPFS</p>
+                </div>
+                <div class="feature">
+                    <h4>Multi-Encoder Support</h4>
+                    <p>Load balancing across multiple encoding nodes</p>
+                </div>
+                <div class="feature">
+                    <h4>Instant Embeds</h4>
+                    <p>Get embed URLs immediately, watch videos as they encode</p>
+                </div>
+                <div class="feature">
+                    <h4>Job Tracking</h4>
+                    <p>Monitor encoding progress and status in real-time</p>
+                </div>
+                <div class="feature">
+                    <h4>Secure API Keys</h4>
+                    <p>Application-based access control for developers</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" id="docs">
+            <h2>📖 Integration Guide</h2>
+            
+            <div class="contact-box">
+                <strong>⚠️ API Key Required:</strong> Contact the 3Speak team to get your API key before integrating this service.
+            </div>
+
+            <h3>Quick Start</h3>
+            <p>Upload videos using the TUS protocol with instant embed URL generation:</p>
+            
+            <pre><code>import * as tus from 'tus-js-client';
+
+const file = document.getElementById('video-input').files[0];
+
+const upload = new tus.Upload(file, {
+  endpoint: 'https://embed.3speak.tv/uploads',
+  headers: {
+    'X-API-Key': 'your-api-key-here'
+  },
+  metadata: {
+    filename: file.name,
+    owner: 'username',
+    frontend_app: 'your-app-name',
+    short: 'false'  // 'true' for 60s clips
+  },
+  onError: (error) => {
+    console.error('Upload failed:', error);
+  },
+  onProgress: (bytesUploaded, bytesTotal) => {
+    const percent = (bytesUploaded / bytesTotal * 100).toFixed(2);
+    console.log(\`Progress: \${percent}%\`);
+  },
+  onSuccess: () => {
+    console.log('Upload complete!');
+  },
+  onAfterResponse: (req, res) => {
+    const embedUrl = res.getHeader('X-Embed-URL');
+    console.log('Embed URL:', embedUrl);
+    // Use this URL immediately in your app!
+  }
+});
+
+upload.start();</code></pre>
+
+            <h3>Embed URL Format</h3>
+            <p>Videos are instantly accessible via:</p>
+            <pre><code>https://play.3speak.tv/embed?v={username}/{videoId}</code></pre>
+            
+            <h3>For Blog Composers (Peakd/Ecency)</h3>
+            <p>Simple HTML5 video tag:</p>
+            <pre><code>&lt;video src="play.3speak.tv/watch?v={username}/{videoId}" controls&gt;&lt;/video&gt;</code></pre>
+
+            <h3>For Websites (Full Iframe)</h3>
+            <p>Full featured player with controls:</p>
+            <pre><code>&lt;iframe 
+  src="https://play.3speak.tv/embed?v={username}/{videoId}" 
+  width="100%" 
+  height="500" 
+  frameborder="0" 
+  allowfullscreen&gt;
+&lt;/iframe&gt;</code></pre>
+
+            <h3>Video Types</h3>
+            <ul>
+                <li><strong>Standard Videos:</strong> Set <code>short: 'false'</code> - Full length, multiple qualities (1080p, 720p, 480p)</li>
+                <li><strong>Short Videos:</strong> Set <code>short: 'true'</code> - Max 60 seconds, 480p only, faster encoding</li>
+            </ul>
+
+            <h3>API Endpoints</h3>
+            <ul>
+                <li><code>POST /uploads</code> - TUS upload endpoint (requires API key)</li>
+                <li><code>GET /video/:permlink</code> - Get video metadata</li>
+                <li><code>GET /health</code> - Service health check</li>
+            </ul>
+
+            <h3>Required Metadata</h3>
+            <ul>
+                <li><code>owner</code> (string) - Username of video owner</li>
+                <li><code>frontend_app</code> (string) - Your application identifier</li>
+                <li><code>short</code> (string) - 'true' or 'false'</li>
+                <li><code>filename</code> (string, optional) - Original file name</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2>🔐 Getting Access</h2>
+            <p>To integrate this service into your application:</p>
+            <ol>
+                <li>Contact the 3Speak development team</li>
+                <li>Provide your application name and use case</li>
+                <li>Receive your unique API key</li>
+                <li>Start uploading videos!</li>
+            </ol>
+            <div class="contact-box" style="margin-top: 20px;">
+                <strong>Contact:</strong> Reach out to the 3Speak team at <a href="https://3speak.tv" target="_blank" style="color: #856404;">3speak.tv</a>
+            </div>
+        </div>
+
+        <footer>
+            <p>Built with ❤️ by <a href="https://hive.blog/@meno" target="_blank">@meno</a></p>
+            <p style="margin-top: 10px; opacity: 0.8; font-size: 0.9em;">
+                Part of the 3Speak decentralized video platform
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

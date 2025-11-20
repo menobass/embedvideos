@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3Speak Admin - API Keys</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    
+    .btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+    }
+    
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    
+    .btn-danger {
+      background: #dc3545;
+    }
+    
+    .btn-success {
+      background: #28a745;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    
+    th, td {
+      text-align: left;
+      padding: 12px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    
+    th {
+      background: #f8f9fa;
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .status-active {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .status-inactive {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .key-display {
+      font-family: monospace;
+      font-size: 12px;
+      background: #f8f9fa;
+      padding: 4px 8px;
+      border-radius: 4px;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .success-message {
+      background: #d4edda;
+      color: #155724;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    
+    .error-message {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    
+    .new-key {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+      display: none;
+    }
+    
+    .new-key strong {
+      color: #856404;
+    }
+    
+    .new-key code {
+      display: block;
+      background: white;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-size: 13px;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h1>🔑 API Key Management</h1>
+        <button class="btn btn-small btn-danger" onclick="logout()">Logout</button>
+      </div>
+      <p class="subtitle">Create and manage API keys for 3Speak video upload service</p>
+      
+      <div class="success-message" id="successMessage"></div>
+      <div class="error-message" id="errorMessage"></div>
+      
+      <h3 style="margin-bottom: 15px;">Create New API Key</h3>
+      <form id="createKeyForm">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 150px; gap: 10px; align-items: end;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="appName">App Name</label>
+            <input type="text" id="appName" placeholder="e.g., snapie" required>
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="owner">Owner Username</label>
+            <input type="text" id="owner" placeholder="e.g., meno" required>
+          </div>
+          
+          <button type="submit" class="btn">Create Key</button>
+        </div>
+      </form>
+      
+      <div class="new-key" id="newKeyDisplay">
+        <strong>⚠️ New API Key Created - Save it now!</strong>
+        <p style="margin-top: 10px; color: #856404; font-size: 14px;">This key will only be shown once. Make sure to copy it:</p>
+        <code id="newKeyValue"></code>
+        <button class="btn btn-small" onclick="copyNewKey()">Copy Key</button>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h3 style="margin-bottom: 15px;">All API Keys</h3>
+      <button class="btn btn-small" onclick="loadKeys()">🔄 Refresh</button>
+      
+      <table id="keysTable">
+        <thead>
+          <tr>
+            <th>App Name</th>
+            <th>Owner</th>
+            <th>API Key</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Last Used</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="keysTableBody">
+          <tr>
+            <td colspan="7" style="text-align: center; padding: 30px; color: #999;">
+              Loading...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  
+  <script>
+    let currentNewKey = '';
+    let adminPassword = '';
+    
+    // Check for password on page load
+    function checkAuth() {
+      adminPassword = localStorage.getItem('adminPassword');
+      if (!adminPassword) {
+        adminPassword = prompt('Enter admin password:');
+        if (!adminPassword) {
+          alert('Admin password required');
+          window.location.href = '/';
+          return false;
+        }
+        localStorage.setItem('adminPassword', adminPassword);
+      }
+      return true;
+    }
+    
+    // Load keys on page load
+    if (checkAuth()) {
+      loadKeys();
+    }
+    
+    // Create new API key
+    document.getElementById('createKeyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const appName = document.getElementById('appName').value;
+      const owner = document.getElementById('owner').value;
+      
+      try {
+        const response = await fetch('/admin/api-keys', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Admin-Password': adminPassword
+          },
+          body: JSON.stringify({ app_name: appName, owner })
+        });
+        
+        const data = await response.json();
+        
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem('adminPassword');
+          alert('Invalid password. Please refresh and try again.');
+          window.location.reload();
+          return;
+        }
+        
+        if (data.success) {
+          currentNewKey = data.key;
+          document.getElementById('newKeyValue').textContent = data.key;
+          document.getElementById('newKeyDisplay').style.display = 'block';
+          showSuccess(`API key created for ${appName}!`);
+          document.getElementById('createKeyForm').reset();
+          loadKeys();
+        } else {
+          showError(data.error || 'Failed to create API key');
+        }
+      } catch (error) {
+        showError('Network error: ' + error.message);
+      }
+    });
+    
+    // Load all API keys
+    async function loadKeys() {
+      try {
+        const response = await fetch('/admin/api-keys', {
+          headers: { 'X-Admin-Password': adminPassword }
+        });
+        const data = await response.json();
+        
+        const tbody = document.getElementById('keysTableBody');
+        
+        if (data.keys.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 30px; color: #999;">No API keys yet</td></tr>';
+          return;
+        }
+        
+        tbody.innerHTML = data.keys.map(key => `
+          <tr>
+            <td><strong>${key.app_name}</strong></td>
+            <td>${key.owner}</td>
+            <td>
+              <div class="key-display" title="${key.key}">${key.key}</div>
+            </td>
+            <td>
+              <span class="status-badge ${key.active ? 'status-active' : 'status-inactive'}">
+                ${key.active ? 'Active' : 'Inactive'}
+              </span>
+            </td>
+            <td>${new Date(key.createdAt).toLocaleDateString()}</td>
+            <td>${key.lastUsed ? new Date(key.lastUsed).toLocaleDateString() : 'Never'}</td>
+            <td>
+              ${key.active 
+                ? `<button class="btn btn-small btn-danger" onclick="toggleKey('${key.key}', false)">Revoke</button>`
+                : `<button class="btn btn-small btn-success" onclick="toggleKey('${key.key}', true)">Activate</button>`
+              }
+            </td>
+          </tr>
+        `).join('');
+      } catch (error) {
+        showError('Failed to load API keys');
+      }
+    }
+    
+    // Toggle API key status
+    async function toggleKey(key, active) {
+      const action = active ? 'activate' : 'revoke';
+      if (!confirm(`Are you sure you want to ${action} this API key?`)) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/admin/api-keys/${key}`, {
+          method: 'PATCH',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Admin-Password': adminPassword
+          },
+          body: JSON.stringify({ active })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          showSuccess(`API key ${active ? 'activated' : 'revoked'} successfully`);
+          loadKeys();
+        } else {
+          showError(data.error || 'Failed to update API key');
+        }
+      } catch (error) {
+        showError('Network error: ' + error.message);
+      }
+    }
+    
+    function copyNewKey() {
+      navigator.clipboard.writeText(currentNewKey).then(() => {
+        alert('API key copied to clipboard!');
+      });
+    }
+    
+    function showSuccess(message) {
+      const el = document.getElementById('successMessage');
+      el.textContent = message;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 5000);
+    }
+    
+    function showError(message) {
+      const el = document.getElementById('errorMessage');
+      el.textContent = message;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 5000);
+    }
+    
+    function logout() {
+      localStorage.removeItem('adminPassword');
+      alert('Logged out successfully');
+      window.location.href = '/';
+    }
+  </script>
+</body>
+</html>
