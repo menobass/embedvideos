@@ -1,0 +1,24 @@
+[Unit]
+Description=3Speak Embed Video Upload Service
+After=network.target mongodb.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/embedvideos
+ExecStart=/usr/bin/node /var/www/embedvideos/dist/index.js
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=embed-upload
+
+# Environment
+Environment=NODE_ENV=production
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
