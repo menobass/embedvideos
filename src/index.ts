@@ -41,6 +41,7 @@ const uploadPath = path.resolve(config.uploadDir);
 const tusServer = new Server({
   path: '/uploads',
   datastore: new FileStore({ directory: uploadPath }),
+  respectForwardedHeaders: true,
   async onUploadCreate(req, res, upload) {
     try {
       // Validate API key for TUS uploads
