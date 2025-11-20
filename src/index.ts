@@ -19,6 +19,9 @@ dotenv.config();
 const app = express();
 const config = loadConfig();
 
+// Trust proxy to get correct protocol from X-Forwarded-Proto
+app.set('trust proxy', true);
+
 // Initialize database
 const database = new Database(config.mongoUri, config.mongoDbName, config.mongoCollectionVideos);
 
