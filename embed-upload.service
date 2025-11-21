@@ -4,7 +4,8 @@ After=network.target mongodb.service
 
 [Service]
 Type=simple
-User=www-data
+User=meno
+Group=meno
 WorkingDirectory=/var/www/embedvideos
 ExecStart=/usr/bin/node /var/www/embedvideos/dist/index.js
 Restart=on-failure
