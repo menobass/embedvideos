@@ -292,8 +292,22 @@ upload.start();</code></pre>
             <ul>
                 <li><code>POST /uploads</code> - TUS upload endpoint (requires API key)</li>
                 <li><code>GET /video/:permlink</code> - Get video metadata</li>
+                <li><code>POST /video/:permlink/thumbnail</code> - Update video thumbnail (requires API key)</li>
                 <li><code>GET /health</code> - Service health check</li>
             </ul>
+
+            <h3>Update Thumbnail</h3>
+            <p>Set a custom thumbnail for your video after upload:</p>
+            <pre><code>fetch('https://embed.3speak.tv/video/ABC123XY/thumbnail', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key'
+  },
+  body: JSON.stringify({
+    thumbnail_url: 'https://your-cdn.com/thumbnail.jpg'
+  })
+});</code></pre>
 
             <h3>Required Metadata</h3>
             <ul>
