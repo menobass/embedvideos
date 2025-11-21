@@ -11,7 +11,7 @@ import { generateApiKey } from './utils/keyGenerator';
 import { createApiKeyMiddleware } from './middleware/auth';
 import { createAdminAuthMiddleware } from './middleware/adminAuth';
 import { loadConfig } from './config/config';
-import { pinFile } from './utils/ipfs';
+import { pinFile, unpinFile } from './utils/ipfs';
 import { JobDispatcher } from './dispatcher/jobDispatcher';
 
 dotenv.config();
@@ -256,6 +256,18 @@ app.post('/webhook', async (req: Request, res: Response) => {
         webhookReceivedAt: new Date(),
       });
 
+      // Unpin the input_cid now that encoding is complete
+      try {
+        const video = await database.getVideo(permlink);
+        if (video && video.input_cid) {
+          console.log(`Unpinning input file for ${owner}/${permlink}: ${video.input_cid}`);
+          await unpinFile(video.input_cid);
+        }
+      } catch (unpinError) {
+        console.warn(`Failed to unpin input_cid for ${owner}/${permlink}:`, unpinError);
+        // Continue despite unpin failure
+      }
+
       console.log(`Video encoding completed: ${owner}/${permlink} - Manifest: ${manifest_cid}`);
       res.json({ success: true, message: 'Webhook processed successfully' });
     } else if (status === 'failed') {
@@ -269,6 +281,18 @@ app.post('/webhook', async (req: Request, res: Response) => {
         webhookReceivedAt: new Date(),
         lastError: encoderError || 'Encoding failed',
       });
+
+      // Unpin the input_cid since encoding failed and we won't retry
+      try {
+        const video = await database.getVideo(permlink);
+        if (video && video.input_cid) {
+          console.log(`Unpinning failed input file for ${owner}/${permlink}: ${video.input_cid}`);
+          await unpinFile(video.input_cid);
+        }
+      } catch (unpinError) {
+        console.warn(`Failed to unpin input_cid for ${owner}/${permlink}:`, unpinError);
+        // Continue despite unpin failure
+      }
 
       console.error(`Video encoding failed: ${owner}/${permlink} - Error: ${encoderError}`);
       res.json({ success: true, message: 'Webhook processed (failure recorded)' });
