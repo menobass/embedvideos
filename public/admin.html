@@ -246,8 +246,21 @@
     </div>
     
     <div class="card">
-      <h3 style="margin-bottom: 15px;">👥 User Management</h3>
-      <button class="btn btn-small" onclick="loadUsers()">🔄 Refresh</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0;">👥 User Management</h3>
+        <button class="btn btn-small" onclick="loadUsers()">🔄 Refresh</button>
+      </div>
+      
+      <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+        <input 
+          type="text" 
+          id="userSearch" 
+          placeholder="Search by username..." 
+          style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px;"
+          onkeyup="if(event.key === 'Enter') loadUsers()">
+        <button class="btn btn-small" onclick="loadUsers()">🔍 Search</button>
+        <button class="btn btn-small" onclick="clearUserSearch()">Clear</button>
+      </div>
       
       <table id="usersTable">
         <thead>
@@ -267,6 +280,16 @@
           </tr>
         </tbody>
       </table>
+      
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
+        <div style="color: #666; font-size: 14px;">
+          <span id="usersPagingInfo">Page 1</span>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-small" id="usersPrevBtn" onclick="loadUsers(currentUsersPage - 1)" disabled>← Previous</button>
+          <button class="btn btn-small" id="usersNextBtn" onclick="loadUsers(currentUsersPage + 1)">Next →</button>
+        </div>
+      </div>
     </div>
   </div>
   
@@ -434,9 +457,21 @@
     }
     
     // User management functions
-    async function loadUsers() {
+    let currentUsersPage = 1;
+    const usersPerPage = 50;
+    
+    async function loadUsers(page = 1) {
       try {
-        const response = await fetch('/admin/users', {
+        currentUsersPage = page;
+        const skip = (page - 1) * usersPerPage;
+        const searchQuery = document.getElementById('userSearch').value.trim();
+        
+        let url = `/admin/users?limit=${usersPerPage}&skip=${skip}`;
+        if (searchQuery) {
+          url += `&search=${encodeURIComponent(searchQuery)}`;
+        }
+        
+        const response = await fetch(url, {
           headers: { 'X-Admin-Password': adminPassword }
         });
         
@@ -451,6 +486,9 @@
         
         if (data.users.length === 0) {
           tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 30px; color: #999;">No users found</td></tr>';
+          document.getElementById('usersPagingInfo').textContent = 'No results';
+          document.getElementById('usersPrevBtn').disabled = true;
+          document.getElementById('usersNextBtn').disabled = true;
           return;
         }
         
@@ -472,9 +510,21 @@
             </td>
           </tr>
         `).join('');
+        
+        // Update pagination controls
+        const startNum = skip + 1;
+        const endNum = skip + data.users.length;
+        document.getElementById('usersPagingInfo').textContent = `Showing ${startNum}-${endNum} (Page ${page})`;
+        document.getElementById('usersPrevBtn').disabled = page === 1;
+        document.getElementById('usersNextBtn').disabled = data.users.length < usersPerPage;
       } catch (error) {
         showError('Failed to load users: ' + error.message);
       }
+    }
+    
+    function clearUserSearch() {
+      document.getElementById('userSearch').value = '';
+      loadUsers(1);
     }
     
     async function toggleBanUser(username, banned) {

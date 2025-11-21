@@ -398,9 +398,10 @@ app.patch('/admin/api-keys/:key', requireAdminAuth, async (req: Request, res: Re
 // Admin: List all users (protected)
 app.get('/admin/users', requireAdminAuth, async (req: Request, res: Response) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 100;
+    const limit = parseInt(req.query.limit as string) || 50;
     const skip = parseInt(req.query.skip as string) || 0;
-    const users = await database.getAllUsers(limit, skip);
+    const search = req.query.search as string;
+    const users = await database.getAllUsers(limit, skip, search);
     res.json({ users });
   } catch (error) {
     console.error('Error fetching users:', error);

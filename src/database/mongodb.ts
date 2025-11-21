@@ -252,13 +252,18 @@ export class Database {
     await usersCollection.insertOne(user);
   }
 
-  async getAllUsers(limit: number = 100, skip: number = 0): Promise<User[]> {
+  async getAllUsers(limit: number = 50, skip: number = 0, search?: string): Promise<User[]> {
     if (!this.db) {
       throw new Error('Database not connected');
     }
     const usersCollection = this.db.collection<User>('embed-users');
+    
+    const query = search 
+      ? { username: { $regex: search, $options: 'i' } }
+      : {};
+    
     return usersCollection
-      .find()
+      .find(query)
       .sort({ lastActivity: -1 })
       .skip(skip)
       .limit(limit)
