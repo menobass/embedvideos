@@ -247,16 +247,6 @@
           <input type="text" id="username" value="testuser123" required>
         </div>
         
-        <div class="form-group">
-          <label for="title">Post Title</label>
-          <input type="text" id="title" placeholder="Enter your post title..." required>
-        </div>
-        
-        <div class="form-group">
-          <label for="description">Description</label>
-          <textarea id="description" placeholder="What's your video about?"></textarea>
-        </div>
-        
         <div class="form-group checkbox-group">
           <input type="checkbox" id="isShort">
           <label for="isShort" style="margin-bottom: 0;">Short-form video (≤60s, 480p max)</label>
@@ -286,7 +276,9 @@
         
         <div>
           <strong>Embed URL:</strong>
-          <div class="embed-url" id="embedUrl"></div>
+          <div class="embed-url">
+            <a id="embedUrl" href="" target="_blank" style="color: #1DA1F2; text-decoration: none;"></a>
+          </div>
         </div>
         
         <div>
@@ -322,6 +314,8 @@
     const uploadBtn = document.getElementById('uploadBtn');
     
     let embedUrl = '';
+    let currentPermlink = '';
+    let statusPollInterval = null;
     
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -376,6 +370,9 @@
           
           // Display results
           displayResults(embedUrl, username);
+          
+          // Start polling for status updates
+          startStatusPolling();
         },
         onAfterResponse: (req, res) => {
           // Capture embed URL from response header
@@ -395,9 +392,12 @@
       // Extract permlink from URL
       const match = url.match(/v=([^&]+)/);
       const videoPath = match ? match[1] : '';
+      currentPermlink = videoPath.split('/')[1]; // Extract just the permlink part
       
-      // Update embed URL display
-      document.getElementById('embedUrl').textContent = url;
+      // Update embed URL display with clickable link
+      const embedUrlLink = document.getElementById('embedUrl');
+      embedUrlLink.textContent = url;
+      embedUrlLink.href = url;
       
       // Generate simple embed code for blog composers (like Peakd/Ecency)
       const simpleEmbed = `<video src="play.3speak.tv/watch?v=${videoPath}" controls></video>`;
@@ -452,6 +452,54 @@
       progressFill.style.width = '0%';
       progressFill.textContent = '0%';
       status.textContent = 'Initializing upload...';
+      
+      // Stop polling if active
+      if (statusPollInterval) {
+        clearInterval(statusPollInterval);
+        statusPollInterval = null;
+      }
+    }
+    
+    function startStatusPolling() {
+      if (!currentPermlink) return;
+      
+      // Poll every 5 seconds
+      statusPollInterval = setInterval(async () => {
+        try {
+          const response = await fetch(`${window.location.origin}/video/${currentPermlink}`);
+          if (!response.ok) return;
+          
+          const video = await response.json();
+          const statusSpan = document.getElementById('videoStatus');
+          
+          if (video.status === 'published') {
+            statusSpan.innerHTML = '<span style="color: #28a745;">✅ Published - Ready to watch!</span>';
+            clearInterval(statusPollInterval);
+            statusPollInterval = null;
+            
+            // Reload preview to show the actual video
+            const previewContainer = document.getElementById('videoPreview');
+            const match = embedUrl.match(/v=([^&]+)/);
+            const videoPath = match ? match[1] : '';
+            previewContainer.innerHTML = `
+              <iframe 
+                src="https://play.3speak.tv/embed?v=${videoPath}&mode=iframe" 
+                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+                frameborder="0"
+                allowfullscreen>
+              </iframe>
+            `;
+          } else if (video.status === 'processing') {
+            statusSpan.innerHTML = `<span style="color: #1DA1F2;">⏳ Processing (${video.encodingProgress || 0}%)</span>`;
+          } else if (video.status === 'failed') {
+            statusSpan.innerHTML = '<span style="color: #dc3545;">❌ Encoding failed</span>';
+            clearInterval(statusPollInterval);
+            statusPollInterval = null;
+          }
+        } catch (error) {
+          console.error('Status poll error:', error);
+        }
+      }, 5000);
     }
   </script>
 </body>
