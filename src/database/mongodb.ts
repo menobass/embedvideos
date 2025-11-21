@@ -235,6 +235,47 @@ export class Database {
     );
   }
 
+  // User management methods
+  async getUser(username: string): Promise<User | null> {
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
+    const usersCollection = this.db.collection<User>('embed-users');
+    return usersCollection.findOne({ username });
+  }
+
+  async createUser(user: User): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
+    const usersCollection = this.db.collection<User>('embed-users');
+    await usersCollection.insertOne(user);
+  }
+
+  async getAllUsers(limit: number = 100, skip: number = 0): Promise<User[]> {
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
+    const usersCollection = this.db.collection<User>('embed-users');
+    return usersCollection
+      .find()
+      .sort({ lastActivity: -1 })
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+  }
+
+  async banUser(username: string, banned: boolean): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not connected');
+    }
+    const usersCollection = this.db.collection<User>('embed-users');
+    await usersCollection.updateOne(
+      { username },
+      { $set: { banned, updatedAt: new Date() } }
+    );
+  }
+
   async close(): Promise<void> {
     await this.client.close();
   }

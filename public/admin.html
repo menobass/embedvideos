@@ -244,6 +244,30 @@
         </tbody>
       </table>
     </div>
+    
+    <div class="card">
+      <h3 style="margin-bottom: 15px;">👥 User Management</h3>
+      <button class="btn btn-small" onclick="loadUsers()">🔄 Refresh</button>
+      
+      <table id="usersTable">
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Status</th>
+            <th>Total Uploads</th>
+            <th>Last Activity</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="usersTableBody">
+          <tr>
+            <td colspan="5" style="text-align: center; padding: 30px; color: #999;">
+              Click Refresh to load users
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
   
   <script>
@@ -407,6 +431,79 @@
       localStorage.removeItem('adminPassword');
       alert('Logged out successfully');
       window.location.href = '/';
+    }
+    
+    // User management functions
+    async function loadUsers() {
+      try {
+        const response = await fetch('/admin/users', {
+          headers: { 'X-Admin-Password': adminPassword }
+        });
+        
+        const data = await response.json();
+        
+        if (!data.users) {
+          showError('Failed to load users');
+          return;
+        }
+        
+        const tbody = document.getElementById('usersTableBody');
+        
+        if (data.users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 30px; color: #999;">No users found</td></tr>';
+          return;
+        }
+        
+        tbody.innerHTML = data.users.map(user => `
+          <tr>
+            <td><strong>${user.username}</strong></td>
+            <td>
+              <span class="status status-${user.banned ? 'inactive' : 'active'}">
+                ${user.banned ? '🚫 Banned' : '✅ Active'}
+              </span>
+            </td>
+            <td>${user.stats?.totalUploads || 0}</td>
+            <td>${user.lastActivity ? new Date(user.lastActivity).toLocaleDateString() : 'Never'}</td>
+            <td>
+              ${user.banned 
+                ? `<button class="btn btn-small btn-success" onclick="toggleBanUser('${user.username}', false)">Unban</button>`
+                : `<button class="btn btn-small btn-danger" onclick="toggleBanUser('${user.username}', true)">Ban User</button>`
+              }
+            </td>
+          </tr>
+        `).join('');
+      } catch (error) {
+        showError('Failed to load users: ' + error.message);
+      }
+    }
+    
+    async function toggleBanUser(username, banned) {
+      const action = banned ? 'ban' : 'unban';
+      if (!confirm(`Are you sure you want to ${action} ${username}?${banned ? '\\n\\nThis will prevent them from uploading any videos.' : ''}`)) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/admin/users/${username}/ban`, {
+          method: 'PATCH',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Admin-Password': adminPassword
+          },
+          body: JSON.stringify({ banned })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          showSuccess(`User ${username} ${banned ? 'banned' : 'unbanned'} successfully`);
+          loadUsers();
+        } else {
+          showError(data.error || 'Failed to update user status');
+        }
+      } catch (error) {
+        showError('Network error: ' + error.message);
+      }
     }
   </script>
 </body>

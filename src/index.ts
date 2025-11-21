@@ -76,6 +76,42 @@ const tusServer = new Server({
       
       console.log(`Upload metadata - short flag: "${upload.metadata?.short}" -> parsed as: ${short}`);
       
+      // Check/create user and verify not banned
+      let user = await database.getUser(owner);
+      if (!user) {
+        // Create new user entry
+        await database.createUser({
+          username: owner,
+          banned: false,
+          banReason: null,
+          bannedAt: null,
+          bannedBy: null,
+          uploadRestricted: false,
+          maxDailyUploads: null,
+          maxFileSize: null,
+          stats: {
+            totalUploads: 0,
+            totalStorageUsed: 0,
+            successfulUploads: 0,
+            failedUploads: 0,
+            lastUpload: null,
+          },
+          trustLevel: 'new',
+          adminNotes: '',
+          firstSeen: new Date(),
+          lastActivity: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        console.log(`New user created: ${owner}`);
+      } else if (user.banned) {
+        // User is banned, reject upload
+        res.statusCode = 403;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'User is banned from uploading' }));
+        return res;
+      }
+      
       // Store permlink in upload metadata for later use
       upload.metadata = upload.metadata || {};
       upload.metadata.permlink = permlink;
@@ -355,6 +391,44 @@ app.patch('/admin/api-keys/:key', requireAdminAuth, async (req: Request, res: Re
     res.json({ success: true, key, active });
   } catch (error) {
     console.error('Error updating API key:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Admin: List all users (protected)
+app.get('/admin/users', requireAdminAuth, async (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 100;
+    const skip = parseInt(req.query.skip as string) || 0;
+    const users = await database.getAllUsers(limit, skip);
+    res.json({ users });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Admin: Ban/Unban user (protected)
+app.patch('/admin/users/:username/ban', requireAdminAuth, async (req: Request, res: Response) => {
+  try {
+    const { username } = req.params;
+    const { banned } = req.body;
+    
+    if (typeof banned !== 'boolean') {
+      return res.status(400).json({ error: 'banned must be a boolean' });
+    }
+    
+    const user = await database.getUser(username);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    await database.banUser(username, banned);
+    
+    console.log(`User ${username} ${banned ? 'banned' : 'unbanned'}`);
+    res.json({ success: true, username, banned });
+  } catch (error) {
+    console.error('Error banning user:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
