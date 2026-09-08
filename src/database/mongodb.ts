@@ -107,6 +107,38 @@ export interface VideoMetadata {
   /** On the ORIGINAL row: when its media was last swapped. Also a cache-busting
    *  signal for anything holding a resolved URL for this permlink. */
   mediaUpdatedAt?: Date;
+  /** On the NEW asset: the original lives in the LEGACY `videos` collection, not
+   *  here, so the swap has to write a legacy-shaped media pointer instead of a
+   *  `manifest_cid`. See applyLegacyReplacement in index.ts. */
+  replacesLegacy?: boolean;
+}
+
+/**
+ * A row in the pre-embed `videos` collection — the 2016-2023 back catalogue,
+ * ~387k entries, still what the watch API serves for those permlinks.
+ *
+ * Only the handful of fields the media swap touches or reads are modelled; the
+ * real documents carry ~60 more (payout, beneficiaries, curation, …) and none of
+ * them are ours to change. Playback hangs entirely off `video_v2`, which is
+ * always `ipfs://<manifest cid>/manifest.m3u8` (138,256 rows, no exceptions) —
+ * a row whose `video_v2` is not a string answers "Video source not available"
+ * even when `ipfs` is set, so `video_v2` is the pointer that matters.
+ */
+export interface LegacyVideo {
+  permlink: string;
+  owner: string;
+  status: string;
+  video_v2?: string | boolean | null;
+  ipfs?: string | null;
+  duration?: number | null;
+  size?: number | null;
+  originalFilename?: string | null;
+  filename?: string | null;
+  /** Written by the media swap so it stays reversible and auditable. */
+  previousVideoV2?: string | boolean | null;
+  previousStatus?: string | null;
+  mediaUpdatedAt?: Date;
+  replacedByPermlink?: string | null;
 }
 
 export interface User {
@@ -227,6 +259,7 @@ export class Database {
   private client: MongoClient;
   private db: Db | null = null;
   private collection: Collection<VideoMetadata> | null = null;
+  private legacyCollection: Collection<LegacyVideo> | null = null;
 
   constructor(connectionString: string, dbName: string, collectionName: string) {
     this.client = new MongoClient(connectionString);
@@ -253,6 +286,14 @@ export class Database {
     await this.client.connect();
     this.db = this.client.db(dbName);
     this.collection = this.db.collection<VideoMetadata>(collectionName);
+
+    // The pre-embed back catalogue. Read-mostly: the only writes we make are the
+    // media pointer on a video its own owner is replacing. No index is created
+    // here on purpose — this collection predates the service and is shared with
+    // the legacy stack, so building one from this process is not our call.
+    this.legacyCollection = this.db.collection<LegacyVideo>(
+      process.env.LEGACY_VIDEOS_COLLECTION || 'videos'
+    );
 
     // Create indexes (tolerant of pre-existing conflicting definitions)
     await this.ensureIndex(this.collection, { permlink: 1 }, { unique: true });
@@ -317,6 +358,32 @@ export class Database {
       throw new Error('Database not connected');
     }
     return this.collection.findOne({ permlink });
+  }
+
+  /** Look a permlink up in the LEGACY `videos` collection. */
+  async getLegacyVideo(permlink: string): Promise<LegacyVideo | null> {
+    if (!this.legacyCollection) {
+      throw new Error('Database not connected');
+    }
+    return this.legacyCollection.findOne({ permlink });
+  }
+
+  /**
+   * Point a legacy row at new media.
+   *
+   * Deliberately narrow: it only ever `$set`s the fields passed in, and the
+   * caller only passes ones that describe the FILE (plus the audit trail). The
+   * legacy documents carry payout, beneficiary and curation state that belongs
+   * to the legacy stack, and a broad update here would be a bad neighbour.
+   */
+  async updateLegacyVideoMedia(permlink: string, fields: Partial<LegacyVideo>): Promise<void> {
+    if (!this.legacyCollection) {
+      throw new Error('Database not connected');
+    }
+    await this.legacyCollection.updateOne(
+      { permlink },
+      { $set: { ...fields, updatedAt: new Date() } as any }
+    );
   }
 
   async getStaleUploads(hoursOld: number): Promise<VideoMetadata[]> {
