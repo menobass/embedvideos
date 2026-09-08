@@ -1,6 +1,10 @@
 node_modules/
 dist/
+dist.bak*/
 .env
+# Backups of .env hold the SAME live secrets and are not covered by the rule
+# above, so an unqualified `git add -A` would commit them.
+.env.bak*
 uploads/
 bin/
 *.log
