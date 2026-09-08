@@ -1600,10 +1600,89 @@ app.post('/video/:permlink/thumbnail', requireApiKey, async (req: Request, res: 
  * it makes the swap reversible and leaves the superseded media identifiable for
  * later unpinning. Safe to call twice — `replacementApplied` makes it a no-op.
  */
+/**
+ * Legacy statuses a media swap is allowed to bring back to `published`.
+ *
+ * A legacy row whose media is gone reads `deleted`, and the watch API answers it
+ * with the shared "unavailable" placeholder — so leaving the status alone would
+ * make the whole swap a no-op. Only the deletion-shaped states need this, and
+ * only they get it: every OTHER status already serves whatever `video_v2` points
+ * at (checked against published, publish_manual, scheduled, publish_later and
+ * encoding_failed rows), so a swap there is visible without touching status —
+ * and a scheduled or never-published video must not go out early as a side
+ * effect of its owner replacing a file.
+ *
+ * NOTE: the legacy collection records no reason for a deletion, so a video the
+ * creator removed and one moderation removed look identical here. The owner
+ * check upstream means only the original poster can do this, and the media that
+ * comes back is a NEW file, but if that trade is ever unwanted, emptying this
+ * set disables reviving without touching anything else.
+ */
+const REVIVABLE_LEGACY_STATUSES = new Set(['deleted', 'self_deleted', 'delete']);
+
+/** Legacy playback pointer for a manifest CID. Always this shape — 138k rows, no exceptions. */
+const legacyVideoV2 = (cid: string) => `ipfs://${cid}/manifest.m3u8`;
+
+/**
+ * Apply a replacement whose ORIGINAL is a pre-embed (legacy) video.
+ *
+ * Same contract as the embed path — the original row keeps its permlink, owner,
+ * created date, views, payout and beneficiaries, and only its media pointer
+ * moves — but the pointer is legacy-shaped: playback resolves off `video_v2`
+ * (`ipfs://<cid>/manifest.m3u8`), not `manifest_cid`, and a row left at status
+ * `deleted` serves the placeholder no matter what its pointer says.
+ *
+ * The Hive post is not edited here either. Legacy posts carry no CID in their
+ * json_metadata at all (`video.info.ipfs` is null on the ones that matter), so
+ * the database really is the only place the media is addressed.
+ */
+async function applyLegacyReplacement(incoming: any): Promise<void> {
+  const target = await database.getLegacyVideo(incoming.replacesPermlink);
+  if (!target) {
+    console.warn(`Replacement ${incoming.permlink}: legacy original ${incoming.replacesPermlink} is gone — skipping`);
+    return;
+  }
+
+  const revive = REVIVABLE_LEGACY_STATUSES.has(target.status);
+  await database.updateLegacyVideoMedia(target.permlink, {
+    video_v2: legacyVideoV2(incoming.manifest_cid),
+    ipfs: incoming.manifest_cid,
+    ...(revive ? { status: 'published' } : {}),
+    // Reversible and auditable: what it pointed at, and what state it was in.
+    previousVideoV2: target.video_v2 ?? null,
+    previousStatus: target.status,
+    replacedByPermlink: incoming.permlink,
+    mediaUpdatedAt: new Date(),
+    // File-describing fields only. Title, tags, beneficiaries, views, created
+    // belong to the original and are never touched.
+    duration: incoming.duration ?? target.duration,
+    size: incoming.size ?? target.size,
+    originalFilename: incoming.originalFilename ?? target.originalFilename,
+  });
+
+  await database.updateVideoStatus(incoming.permlink, incoming.status, {
+    replacementApplied: true,
+    replaced: true,
+    replacedAt: new Date(),
+    replacedBy: target.permlink,
+  } as any);
+
+  console.log(
+    `Legacy media replaced for ${target.owner}/${target.permlink}: ` +
+    `${target.video_v2 || 'none'} -> ${legacyVideoV2(incoming.manifest_cid)} ` +
+    `(via ${incoming.permlink}${revive ? `, status ${target.status} -> published` : ''})`
+  );
+}
+
 async function applyPendingReplacement(newPermlink: string): Promise<void> {
   const incoming = await database.getVideo(newPermlink);
   if (!incoming?.replacesPermlink || incoming.replacementApplied) return;
   if (!incoming.manifest_cid) return; // not encoded yet — nothing to copy
+
+  if (incoming.replacesLegacy) {
+    await applyLegacyReplacement(incoming);
+    return;
+  }
 
   const target = await database.getVideo(incoming.replacesPermlink);
   if (!target) {
@@ -1756,6 +1835,37 @@ setInterval(async () => {
 // Doing it this way — rather than repointing the Hive post at a new asset —
 // keeps the original row's permlink, createdAt, views and Hive association, so
 // the video holds its place in every feed and no on-chain edit is needed.
+// Can this permlink's media be replaced, and by whom?
+//
+// Exists so the frontend can ask BEFORE it uploads. Registration used to be the
+// first check, which meant a rejected replacement had already uploaded and
+// encoded a whole file — and because registration is what delists the carrier,
+// the failure left an orphan asset listed in the owner's profile with no Hive
+// post behind it. Checking first costs one request and leaves nothing behind.
+app.get('/video/:permlink/replace-target', requireApiKey, async (req: Request, res: Response) => {
+  try {
+    const { permlink } = req.params;
+    const embed = await database.getVideo(permlink);
+    if (embed) {
+      return res.json({ found: true, kind: 'embed', owner: embed.owner, status: embed.status });
+    }
+    const legacy = await database.getLegacyVideo(permlink);
+    if (legacy) {
+      // Every legacy row qualifies, whatever its status. The watch API serves
+      // whatever `video_v2` holds and `deleted` is the only status that overrides
+      // it with the placeholder — verified against published, publish_manual,
+      // scheduled, publish_later and encoding_failed rows, all of which serve
+      // their real media. So giving any of them a new manifest makes it play, and
+      // the deleted ones are covered by the status revive.
+      return res.json({ found: true, kind: 'legacy', owner: legacy.owner, status: legacy.status });
+    }
+    res.status(404).json({ found: false, error: 'No video with that permlink' });
+  } catch (error) {
+    console.error('Error resolving replace target:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.post('/video/:permlink/replaces', requireApiKey, async (req: Request, res: Response) => {
   try {
     const { permlink } = req.params;          // the NEW asset
@@ -1768,11 +1878,18 @@ app.post('/video/:permlink/replaces', requireApiKey, async (req: Request, res: R
       return res.status(400).json({ error: 'A video cannot replace itself' });
     }
 
-    const [incoming, target] = await Promise.all([
+    const [incoming, embedTarget] = await Promise.all([
       database.getVideo(permlink),
       database.getVideo(replaces),
     ]);
     if (!incoming) return res.status(404).json({ error: 'Replacement video not found' });
+
+    // The original may be a pre-embed video: ~387k of them live in the legacy
+    // `videos` collection and have no row here at all, so an embed-only lookup
+    // 404s on the entire back catalogue — which is exactly the content whose
+    // media is most likely dead and most worth replacing.
+    const legacyTarget = embedTarget ? null : await database.getLegacyVideo(replaces);
+    const target = embedTarget ?? legacyTarget;
     if (!target) return res.status(404).json({ error: 'Original video not found' });
     // Only the same account may swap its own media.
     if (incoming.owner !== target.owner) {
@@ -1781,6 +1898,7 @@ app.post('/video/:permlink/replaces', requireApiKey, async (req: Request, res: R
 
     await database.updateVideoStatus(permlink, incoming.status, {
       replacesPermlink: replaces,
+      replacesLegacy: !!legacyTarget,
       replacementApplied: false,
       // The replacement is a carrier for media, not a video in its own right —
       // keep it out of listings so it never shows up as a duplicate upload.
@@ -1791,11 +1909,14 @@ app.post('/video/:permlink/replaces', requireApiKey, async (req: Request, res: R
     // rather than waiting for a webhook that has already been and gone.
     if (incoming.status === 'published' && incoming.manifest_cid) {
       await applyPendingReplacement(permlink);
-      return res.json({ success: true, permlink, replaces, applied: true });
+      return res.json({ success: true, permlink, replaces, applied: true, legacy: !!legacyTarget });
     }
 
-    console.log(`Replacement registered: ${permlink} will replace ${target.owner}/${replaces} once encoded`);
-    res.json({ success: true, permlink, replaces, applied: false });
+    console.log(
+      `Replacement registered: ${permlink} will replace ` +
+      `${legacyTarget ? 'legacy ' : ''}${target.owner}/${replaces} once encoded`
+    );
+    res.json({ success: true, permlink, replaces, applied: false, legacy: !!legacyTarget });
   } catch (error) {
     console.error('Error registering replacement:', error);
     res.status(500).json({ error: 'Internal server error' });
